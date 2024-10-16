@@ -1,6 +1,6 @@
 # DATA
 dataset = 'raildb'
-data_root = '/home/xinpeng/Rail-DB/'
+data_root = '/content/Rail-Detection/'
 
 # TRAIN
 epoch = 50
@@ -25,7 +25,7 @@ cls_num_per_lane = 52
 # EXP
 note = 'test'
 
-log_path = '/home/xinpeng/Rail-DB/log'
+log_path = '/content/Rail-Detection/utils'
 
 # FINETUNE or RESUME MODEL PATH
 finetune = None
