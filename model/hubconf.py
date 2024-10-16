@@ -69,7 +69,7 @@ from torchvision.models.vision_transformer import (
     vit_l_16,
     vit_l_32,
     # vit_h_14,
-=======
+)
 # Optional list of dependencies required by the package
 dependencies = ["torch"]
 
@@ -140,5 +140,4 @@ from torchvision.models.vision_transformer import (
     vit_l_16,
     vit_l_32,
     # vit_h_14,
->>>>>>> d175ba8a15a74cff363e8da114147f44311bfb42
 )
