@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 import torch
 from model.backbone import resnet, mobilenet, squeezenet, VisionTransformer
 import numpy as np
@@ -101,7 +101,7 @@ def real_init_weights(m):
                 real_init_weights(mini_m)
         else:
             print('unkonwn module', m)
-=======
+
 import torch
 from model.backbone import resnet, mobilenet, squeezenet, VisionTransformer
 import numpy as np
@@ -204,4 +204,4 @@ def real_init_weights(m):
                 real_init_weights(mini_m)
         else:
             print('unkonwn module', m)
->>>>>>> d175ba8a15a74cff363e8da114147f44311bfb42
+
