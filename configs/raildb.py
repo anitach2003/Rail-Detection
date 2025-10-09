@@ -1,6 +1,6 @@
 # DATA
 dataset = 'raildb'
-data_root = '/content/Rail-Detection/'
+data_root = '/content/Rail-Detection/Rail-DB'
 
 # TRAIN
 epoch = 50
@@ -25,15 +25,15 @@ cls_num_per_lane = 52
 # EXP
 note = 'test'
 
-log_path = '/content/Rail-Detection/utils'
+log_path = '/content/Rail-Detection/Rail-DB/utils'
 
 # FINETUNE or RESUME MODEL PATH
 finetune = None
 resume = None
 
 # TEST
-test_model = '/home/xinpeng/Rail-DB/log/test_model.pth'
-test_work_dir = '/home/xinpeng/Rail-DB/test/'
+test_model = '/content/Rail-Detection/Rail-DB/log/test_model.pth'
+test_work_dir = '/content/Rail-Detection/Rail-DB/test/'
 
 num_lanes = 4
 type = 'all'
