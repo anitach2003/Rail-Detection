@@ -3,7 +3,7 @@ dataset = 'raildb'
 data_root = '/content/Rail-Detection/Rail-DB/'
 
 # TRAIN
-epoch = 50
+epoch = 1
 batch_size = 64
 optimizer = 'Adam'    #['SGD','Adam']
 # learning_rate = 0.1
