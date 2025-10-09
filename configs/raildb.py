@@ -1,6 +1,6 @@
 # DATA
 dataset = 'raildb'
-data_root = '/content/Rail-Detection/Rail-DB'
+data_root = '/content/Rail-Detection/Rail-DB/'
 
 # TRAIN
 epoch = 50
