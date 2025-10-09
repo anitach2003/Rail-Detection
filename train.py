@@ -256,7 +256,7 @@ if __name__ == "__main__":
 
     dist_print('*************    validate all      ***************')
     validate(best_model, val_loader, logger, metric_dict,) # savefig=[cfg.data_root, 'all'])
-    # validateplus(cfg, distributed, best_model, logger, metric_dict)
+    validateplus(cfg, distributed, best_model, logger, metric_dict)
     
     logger.close()
     dist_print(best_acc, best_epoch)
