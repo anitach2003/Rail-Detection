@@ -249,7 +249,7 @@ if __name__ == "__main__":
         train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, metric_dict)
         acc = validate(net, val_loader, logger, metric_dict)
         if acc > best_acc: best_acc, best_epoch, best_model = acc, epoch, copy.deepcopy(net)
-        save_model(net, optimizer, epoch, work_dir, distributed)
+        # save_model(net, optimizer, epoch, work_dir, distributed)
     
     # net.load_state_dict(torch.load('/home/ssd7T/lxpData/RAIL-DB/log/rail/best_0.893.pth', map_location='cpu'))
     # best_model = copy.deepcopy(net)
