@@ -18,7 +18,7 @@ warmup = 'linear'
 warmup_iters = 100
 
 # NETWORK
-backbone = '34'
+backbone = '18'
 griding_num = 200
 cls_num_per_lane = 52
 
