@@ -5,7 +5,7 @@ data_root = '/kaggle/working/Rail-Detection/Rail-DB/'
 # TRAIN
 epoch = 50
 batch_size = 64
-optimizer = 'AdamW'    #['SGD','Adam']
+optimizer = 'Adam'    #['SGD','Adam']
 # learning_rate = 0.1
 learning_rate = 4e-4
 weight_decay = 1e-4
