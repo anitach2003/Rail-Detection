@@ -7,7 +7,9 @@ import torch
 
 def get_optimizer(net,cfg):
     training_params = filter(lambda p: p.requires_grad, net.parameters())
-    if cfg.optimizer == 'Adam':
+    if cfg.optimizer == 'AdamW':
+        optimizer = torch.optim.AdamW(training_params, lr=cfg.learning_rate, weight_decay=cfg.weight_decay)
+    elif cfg.optimizer == 'Adam':
         optimizer = torch.optim.Adam(training_params, lr=cfg.learning_rate, weight_decay=cfg.weight_decay)
     elif cfg.optimizer == 'SGD':
         optimizer = torch.optim.SGD(training_params, lr=cfg.learning_rate, momentum=cfg.momentum,
@@ -130,5 +132,6 @@ class CosineAnnealingLR:
 
         for group, lr in zip(self.optimizer.param_groups, self.base_lr):
             group['lr'] = self.eta_min + (lr - self.eta_min) * (1 + math.cos(math.pi * self.iters / self.T_max)) / 2
+
 
         
