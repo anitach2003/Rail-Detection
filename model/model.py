@@ -1,73 +1,86 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GATConv
 import numpy as np
-import torch
 from model.backbone import resnet, mobilenet, squeezenet, VisionTransformer
-import numpy as np
+
 
 class conv_bn_relu(torch.nn.Module):
-    def __init__(self,in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1,bias=False):
-        super(conv_bn_relu,self).__init__()
-        self.conv = torch.nn.Conv2d(in_channels, out_channels, kernel_size, 
-            stride = stride, padding = padding, dilation = dilation,bias = bias)
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, bias=False):
+        super(conv_bn_relu, self).__init__()
+        self.conv = torch.nn.Conv2d(in_channels, out_channels, kernel_size,
+                                    stride=stride, padding=padding, dilation=dilation, bias=bias)
         self.bn = torch.nn.BatchNorm2d(out_channels)
         self.relu = torch.nn.ReLU()
 
-    def forward(self,x):
+    def forward(self, x):
         x = self.conv(x)
         x = self.bn(x)
         x = self.relu(x)
         return x
 
+
+def build_grid_edge_index(height=9, width=25, device='cpu'):
+    """Builds a sparse 8-connected grid graph for GATConv."""
+    edges = []
+    for i in range(height):
+        for j in range(width):
+            node_id = i * width + j
+            for di in [-1, 0, 1]:
+                for dj in [-1, 0, 1]:
+                    ni, nj = i + di, j + dj
+                    if 0 <= ni < height and 0 <= nj < width:
+                        neighbor_id = ni * width + nj
+                        edges.append((node_id, neighbor_id))
+    edge_index = torch.tensor(edges, dtype=torch.long, device=device).T  # [2, num_edges]
+    return edge_index
+
+
 class parsingNet(torch.nn.Module):
     def __init__(self, size=(288, 800), pretrained=True, backbone='50', cls_dim=(100, 52, 4)):
         # cls_dim: (num_gridding, num_cls_per_lane, num_of_lanes)
-
         super(parsingNet, self).__init__()
         self.size = size
         self.w = size[1]
         self.h = size[0]
-        self.cls_dim = cls_dim 
+        self.cls_dim = cls_dim
         self.num_nodes = 9 * 25  # 225
         in_features = 8
         hidden_features = 16
 
-        # GCNConv layers
-        self.gc1 = GCNConv(in_features, hidden_features)
-        self.gc2 = GCNConv(hidden_features, in_features)
-        # input : nchw,
-        # 1/32,
-        # 288,800 -> 9,25
-        if backbone in ['34','18']:
-            self.model = resnet(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Conv2d(512,8,1)
+        # --- Replace GCNConv with GATConv ---
+        self.gc1 = GATConv(in_features, hidden_features, heads=4, concat=True)
+        self.gc2 = GATConv(hidden_features * 4, in_features, heads=1, concat=False)
+        # -------------------------------------
 
-        if backbone in ['50','101']:
+        # Backbone feature extractor
+        if backbone in ['34', '18']:
             self.model = resnet(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Conv2d(2048,8,1)
+            self.pool = torch.nn.Conv2d(512, 8, 1)
 
-        if backbone in ['mobilenet_v2', 'mobilenet_v3_large', 'mobilenet_v3_small']:
+        elif backbone in ['50', '101']:
+            self.model = resnet(backbone, pretrained=pretrained)
+            self.pool = torch.nn.Conv2d(2048, 8, 1)
+
+        elif backbone in ['mobilenet_v2', 'mobilenet_v3_large', 'mobilenet_v3_small']:
             self.model = mobilenet(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Conv2d(1280,8,1)
+            self.pool = torch.nn.Conv2d(1280, 8, 1)
 
-        if backbone in ['squeezenet1_0', 'squeezenet1_1',]:
+        elif backbone in ['squeezenet1_0', 'squeezenet1_1']:
             self.model = squeezenet(backbone, pretrained=pretrained)
             self.pool = torch.nn.Sequential(
-                            torch.nn.Conv2d(512,8,1),
-                            torch.nn.AdaptiveAvgPool2d((9, 25)),
-                            )
-            
-        if backbone in ['vit_b_16', ]:
+                torch.nn.Conv2d(512, 8, 1),
+                torch.nn.AdaptiveAvgPool2d((9, 25)),
+            )
+
+        elif backbone in ['vit_b_16']:
             self.model = VisionTransformer(backbone, pretrained=pretrained)
             self.pool = torch.nn.Sequential(
-                            torch.nn.Linear(768, 1800),
-                            )
-            
-        # input: 9,25,8 = 1800
-        # output: (gridding_num+1) * sample_rows * 4
-        # 56+1 * 42 * 4
+                torch.nn.Linear(768, 1800),
+            )
+
+        # Classification head
         self.cls_cat = torch.nn.Sequential(
             torch.nn.Linear(1800, 2048),
             torch.nn.ReLU(),
@@ -77,18 +90,17 @@ class parsingNet(torch.nn.Module):
         initialize_weights(self.cls_cat)
 
     def forward(self, x):
-        # n c h w - > n 2048 sh sw
-        # -> n 2048
+        # Extract backbone features
         x4 = self.model(x)
         fea = self.pool(x4)
+
+        # Downsample to 9x25 grid
         fea = F.adaptive_avg_pool2d(fea, (9, 25))
         fea = fea.view(fea.size(0), 8, -1).permute(0, 2, 1)  # [B, 225, 8]
 
-        # Build a full adjacency edge_index for 225 nodes
+        # Build sparse adjacency for 9x25 grid
         device = fea.device
-        edge_index = torch.combinations(torch.arange(self.num_nodes, device=device), r=2).T
-        # Add both directions and self-loops
-        edge_index = torch.cat([edge_index, edge_index.flip(0), torch.arange(self.num_nodes, device=device).repeat(2, 1)], dim=1)
+        edge_index = build_grid_edge_index(9, 25, device)
 
         outputs = []
         for b in range(fea.size(0)):
@@ -103,12 +115,13 @@ class parsingNet(torch.nn.Module):
 
         return group_cat
 
+
 def initialize_weights(*models):
     for model in models:
         real_init_weights(model)
 
-def real_init_weights(m):
 
+def real_init_weights(m):
     if isinstance(m, list):
         for mini_m in m:
             real_init_weights(mini_m)
@@ -122,9 +135,8 @@ def real_init_weights(m):
         elif isinstance(m, torch.nn.BatchNorm2d):
             torch.nn.init.constant_(m.weight, 1)
             torch.nn.init.constant_(m.bias, 0)
-        elif isinstance(m,torch.nn.Module):
+        elif isinstance(m, torch.nn.Module):
             for mini_m in m.children():
                 real_init_weights(mini_m)
         else:
-            print('unkonwn module', m)
-
+            print('unknown module', m)
