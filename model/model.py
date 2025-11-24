@@ -1,41 +1,25 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GATConv
+from torch_geometric.nn import GCNConv
 import numpy as np
+import torch
 from model.backbone import resnet, mobilenet, squeezenet, VisionTransformer
-
+import numpy as np
 
 class conv_bn_relu(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, bias=False):
-        super(conv_bn_relu, self).__init__()
-        self.conv = torch.nn.Conv2d(in_channels, out_channels, kernel_size,
-                                    stride=stride, padding=padding, dilation=dilation, bias=bias)
+    def __init__(self,in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1,bias=False):
+        super(conv_bn_relu,self).__init__()
+        self.conv = torch.nn.Conv2d(in_channels, out_channels, kernel_size, 
+            stride = stride, padding = padding, dilation = dilation,bias = bias)
         self.bn = torch.nn.BatchNorm2d(out_channels)
         self.relu = torch.nn.ReLU()
 
-    def forward(self, x):
+    def forward(self,x):
         x = self.conv(x)
         x = self.bn(x)
         x = self.relu(x)
         return x
-
-
-def build_grid_edge_index(height=9, width=25, device='cpu'):
-    """Builds a sparse 8-connected grid graph for GATConv."""
-    edges = []
-    for i in range(height):
-        for j in range(width):
-            node_id = i * width + j
-            for di in [-1, 0, 1]:
-                for dj in [-1, 0, 1]:
-                    ni, nj = i + di, j + dj
-                    if 0 <= ni < height and 0 <= nj < width:
-                        neighbor_id = ni * width + nj
-                        edges.append((node_id, neighbor_id))
-    edge_index = torch.tensor(edges, dtype=torch.long, device=device).T  # [2, num_edges]
-    return edge_index
-
 
 class parsingNet(torch.nn.Module):
     def __init__(self, size=(288, 800), pretrained=True, backbone='50', cls_dim=(100, 52, 4)):
@@ -46,7 +30,13 @@ class parsingNet(torch.nn.Module):
         self.w = size[1]
         self.h = size[0]
         self.cls_dim = cls_dim 
+        self.num_nodes = 9 * 25  # 225
+        in_features = 8
+        hidden_features = 16
 
+        # GCNConv layers
+        self.gc1 = GCNConv(in_features, hidden_features)
+        self.gc2 = GCNConv(hidden_features, in_features)
         # input : nchw,
         # 1/32,
         # 288,800 -> 9,25
@@ -90,20 +80,35 @@ class parsingNet(torch.nn.Module):
         # n c h w - > n 2048 sh sw
         # -> n 2048
         x4 = self.model(x)
+        fea = self.pool(x4)
+        fea = F.adaptive_avg_pool2d(fea, (9, 25))
+        fea = fea.view(fea.size(0), 8, -1).permute(0, 2, 1)  # [B, 225, 8]
 
-        fea = self.pool(x4).view(-1, 1800)
+        # Build a full adjacency edge_index for 225 nodes
+        device = fea.device
+        edge_index = torch.combinations(torch.arange(self.num_nodes, device=device), r=2).T
+        # Add both directions and self-loops
+        edge_index = torch.cat([edge_index, edge_index.flip(0), torch.arange(self.num_nodes, device=device).repeat(2, 1)], dim=1)
 
+        outputs = []
+        for b in range(fea.size(0)):
+            node_features = fea[b]  # [225, 8]
+            x1 = F.relu(self.gc1(node_features, edge_index))
+            x2 = self.gc2(x1, edge_index)
+            outputs.append(x2)
+
+        fea = torch.stack(outputs, dim=0)  # [B, 225, 8]
+        fea = fea.reshape(fea.size(0), -1)
         group_cat = self.cls_cat(fea).view(-1, *self.cls_dim)
 
         return group_cat
-
 
 def initialize_weights(*models):
     for model in models:
         real_init_weights(model)
 
-
 def real_init_weights(m):
+
     if isinstance(m, list):
         for mini_m in m:
             real_init_weights(mini_m)
@@ -117,9 +122,10 @@ def real_init_weights(m):
         elif isinstance(m, torch.nn.BatchNorm2d):
             torch.nn.init.constant_(m.weight, 1)
             torch.nn.init.constant_(m.bias, 0)
-        elif isinstance(m, torch.nn.Module):
+        elif isinstance(m,torch.nn.Module):
             for mini_m in m.children():
                 real_init_weights(mini_m)
         else:
-            print('unknown module', m)
+            print('unkonwn module', m)
+
 
