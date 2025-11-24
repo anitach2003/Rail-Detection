@@ -40,47 +40,44 @@ def build_grid_edge_index(height=9, width=25, device='cpu'):
 class parsingNet(torch.nn.Module):
     def __init__(self, size=(288, 800), pretrained=True, backbone='50', cls_dim=(100, 52, 4)):
         # cls_dim: (num_gridding, num_cls_per_lane, num_of_lanes)
+
         super(parsingNet, self).__init__()
         self.size = size
         self.w = size[1]
         self.h = size[0]
-        self.cls_dim = cls_dim
-        self.num_nodes = 9 * 25  # 225
-        in_features = 8
-        hidden_features = 16
+        self.cls_dim = cls_dim 
 
-        # --- Replace GCNConv with GATConv ---
-        self.gc1 = GATConv(in_features, hidden_features, heads=4, concat=True)
-        self.gc2 = GATConv(hidden_features * 4, in_features, heads=1, concat=False)
-        # -------------------------------------
-
-        # Backbone feature extractor
-        if backbone in ['34', '18']:
+        # input : nchw,
+        # 1/32,
+        # 288,800 -> 9,25
+        if backbone in ['34','18']:
             self.model = resnet(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Conv2d(512, 8, 1)
+            self.pool = torch.nn.Conv2d(512,8,1)
 
-        elif backbone in ['50', '101']:
+        if backbone in ['50','101']:
             self.model = resnet(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Conv2d(2048, 8, 1)
+            self.pool = torch.nn.Conv2d(2048,8,1)
 
-        elif backbone in ['mobilenet_v2', 'mobilenet_v3_large', 'mobilenet_v3_small']:
+        if backbone in ['mobilenet_v2', 'mobilenet_v3_large', 'mobilenet_v3_small']:
             self.model = mobilenet(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Conv2d(1280, 8, 1)
+            self.pool = torch.nn.Conv2d(1280,8,1)
 
-        elif backbone in ['squeezenet1_0', 'squeezenet1_1']:
+        if backbone in ['squeezenet1_0', 'squeezenet1_1',]:
             self.model = squeezenet(backbone, pretrained=pretrained)
             self.pool = torch.nn.Sequential(
-                torch.nn.Conv2d(512, 8, 1),
-                torch.nn.AdaptiveAvgPool2d((9, 25)),
-            )
-
-        elif backbone in ['vit_b_16']:
+                            torch.nn.Conv2d(512,8,1),
+                            torch.nn.AdaptiveAvgPool2d((9, 25)),
+                            )
+            
+        if backbone in ['vit_b_16', ]:
             self.model = VisionTransformer(backbone, pretrained=pretrained)
             self.pool = torch.nn.Sequential(
-                torch.nn.Linear(768, 1800),
-            )
-
-        # Classification head
+                            torch.nn.Linear(768, 1800),
+                            )
+            
+        # input: 9,25,8 = 1800
+        # output: (gridding_num+1) * sample_rows * 4
+        # 56+1 * 42 * 4
         self.cls_cat = torch.nn.Sequential(
             torch.nn.Linear(1800, 2048),
             torch.nn.ReLU(),
@@ -90,27 +87,12 @@ class parsingNet(torch.nn.Module):
         initialize_weights(self.cls_cat)
 
     def forward(self, x):
-        # Extract backbone features
+        # n c h w - > n 2048 sh sw
+        # -> n 2048
         x4 = self.model(x)
-        fea = self.pool(x4)
 
-        # Downsample to 9x25 grid
-        fea = F.adaptive_avg_pool2d(fea, (9, 25))
-        fea = fea.view(fea.size(0), 8, -1).permute(0, 2, 1)  # [B, 225, 8]
+        fea = self.pool(x4).view(-1, 1800)
 
-        # Build sparse adjacency for 9x25 grid
-        device = fea.device
-        edge_index = build_grid_edge_index(9, 25, device)
-
-        outputs = []
-        for b in range(fea.size(0)):
-            node_features = fea[b]  # [225, 8]
-            x1 = F.relu(self.gc1(node_features, edge_index))
-            x2 = self.gc2(x1, edge_index)
-            outputs.append(x2)
-
-        fea = torch.stack(outputs, dim=0)  # [B, 225, 8]
-        fea = fea.reshape(fea.size(0), -1)
         group_cat = self.cls_cat(fea).view(-1, *self.cls_dim)
 
         return group_cat
@@ -140,3 +122,4 @@ def real_init_weights(m):
                 real_init_weights(mini_m)
         else:
             print('unknown module', m)
+
