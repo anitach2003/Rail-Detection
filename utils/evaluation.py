@@ -2,6 +2,25 @@ import numpy as np
 import json
 from scipy import special
 from IPython import embed
+def send_text_to_telegram(bot_token, chat_id, message):
+    url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
+    response = requests.post(
+        url,
+        data={
+            'chat_id': chat_id,
+            'text': message
+        }
+    )
+    
+    # Check the response
+    if response.status_code == 200:
+        print("Message sent successfully!")
+    else:
+        print("Failed to send message:", response.text)
+import requests
+import os
+BOT_TOKEN = '7651391280:AAEqT4XRPZZTQNjyQvx_2FzRUNKDdc387BU'
+CHAT_ID = '-134642039'
 
 color_list = [(0,0,225), (255,0,0), (0,225,0), (255,0,225), (255,255,225), (0,255,255), (255,255,0), (125,255,255)]
 thickness_list = [1, 3, 5, 7, 9, 11, 13, 15]
@@ -92,7 +111,9 @@ class LaneEval(object):
             fp += p
             fn += n
         num = len(gts)
-        # the first return parameter is the default ranking parameter
+        send_text_to_telegram(BOT_TOKEN, CHAT_ID, str(accuracy / num))
+        send_text_to_telegram(BOT_TOKEN, CHAT_ID, str(fp / num))
+        send_text_to_telegram(BOT_TOKEN, CHAT_ID, str(fn / num))
         return json.dumps([
             {'name': 'Accuracy', 'value': accuracy / num, 'order': 'desc'},
             {'name': 'FP', 'value': fp / num, 'order': 'asc'},
