@@ -33,17 +33,17 @@ class parsingNet(torch.nn.Module):
         if backbone in ['34', '18']:
             self.model = resnet(backbone, pretrained=pretrained)
             feature_dim = 512
-            self.pool = nn.Conv2d(feature_dim, hidden_dim, 1)
+            self.pool = torch.nn.Conv2d(feature_dim, hidden_dim, 1)
 
         elif backbone in ['50', '101']:
             self.model = resnet(backbone, pretrained=pretrained)
             feature_dim = 2048
-            self.pool = nn.Conv2d(feature_dim, hidden_dim, 1)
+            self.pool =torch.nn.Conv2d(feature_dim, hidden_dim, 1)
 
         elif backbone in ['mobilenet_v2', 'mobilenet_v3_large', 'mobilenet_v3_small']:
             self.model = mobilenet(backbone, pretrained=pretrained)
             feature_dim = 1280
-            self.pool = nn.Conv2d(feature_dim, hidden_dim, 1)
+            self.pool =torch.nn.Conv2d(feature_dim, hidden_dim, 1)
 
         else:
             raise NotImplementedError(backbone)
@@ -71,7 +71,7 @@ class parsingNet(torch.nn.Module):
         # -------------------------------------------------------
         # 🔥 FFN that maps each query to a 200×52 map
         # -------------------------------------------------------
-        self.output_ffn = nn.Sequential(
+        self.output_ffn =torch.nn.Sequential(
             torch.nn.Linear(hidden_dim, hidden_dim),
             torch.nn.ReLU(),
             torch.nn.Linear(hidden_dim, self.num_rows * self.num_cols)
@@ -143,6 +143,7 @@ def real_init_weights(m):
                 real_init_weights(mini_m)
         else:
             print('unkonwn module', m)
+
 
 
 
