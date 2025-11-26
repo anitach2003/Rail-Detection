@@ -16,94 +16,104 @@ class conv_bn_relu(torch.nn.Module):
         x = self.relu(x)
         return x
 
-class parsingNet(torch.nn.Module):
-    def __init__(self, size=(288, 800), pretrained=True, backbone='50', cls_dim=(100, 52, 4)):
-        # cls_dim: (num_gridding, num_cls_per_lane, num_of_lanes)
-
+class parsingNet(nn.Module):
+    def __init__(self, size=(288, 800), pretrained=True, backbone='18',
+                 cls_dim=(200, 52, 4), hidden_dim=256, num_heads=8,
+                 num_encoder_layers=4, num_decoder_layers=4):
         super(parsingNet, self).__init__()
+
         self.size = size
-        self.w = size[1]
-        self.h = size[0]
-        self.cls_dim = cls_dim 
+        self.h, self.w = size
+        self.cls_dim = cls_dim
+        self.num_rows, self.num_cols, self.num_lanes = cls_dim
 
-        # input : nchw,
-        # 1/32,
-        # 288,800 -> 9,25
-        if backbone in ['34','18']:
+        # -----------------------------
+        # Backbone + pooling (your code)
+        # -----------------------------
+        if backbone in ['34', '18']:
             self.model = resnet(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Conv2d(512,8,1)
+            feature_dim = 512
+            self.pool = nn.Conv2d(feature_dim, hidden_dim, 1)
 
-        if backbone in ['50','101']:
+        elif backbone in ['50', '101']:
             self.model = resnet(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Conv2d(2048,8,1)
+            feature_dim = 2048
+            self.pool = nn.Conv2d(feature_dim, hidden_dim, 1)
 
-        if backbone in ['mobilenet_v2', 'mobilenet_v3_large', 'mobilenet_v3_small']:
+        elif backbone in ['mobilenet_v2', 'mobilenet_v3_large', 'mobilenet_v3_small']:
             self.model = mobilenet(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Conv2d(1280,8,1)
+            feature_dim = 1280
+            self.pool = nn.Conv2d(feature_dim, hidden_dim, 1)
 
-        if backbone in ['squeezenet1_0', 'squeezenet1_1',]:
-            self.model = squeezenet(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Sequential(
-                            torch.nn.Conv2d(512,8,1),
-                            torch.nn.AdaptiveAvgPool2d((9, 25)),
-                            )
-            
-        if backbone in ['vit_b_16', ]:
-            self.model = VisionTransformer(backbone, pretrained=pretrained)
-            self.pool = torch.nn.Sequential(
-                            torch.nn.Linear(768, 1800),
-                            )
-            
-        # Classifier head
-        self.cls_cat = torch.nn.Sequential(
-            torch.nn.Linear(1800, 2048),
-            torch.nn.ReLU(),
-            torch.nn.Linear(2048, np.prod(cls_dim)),
+        else:
+            raise NotImplementedError(backbone)
+
+        # -------------------------------------------------------
+        # 🔥 DETR-style Transformer Encoder / Decoder
+        # -------------------------------------------------------
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim, nhead=num_heads, batch_first=False
         )
-        initialize_weights(self.cls_cat)
+        self.encoder = nn.TransformerEncoder(encoder_layer,
+                                             num_layers=num_encoder_layers)
 
-        # -------------------------------
-        # ⭐ Row Smoothing 1D Conv (depthwise)
-        # -------------------------------
-        num_gridding, num_rows, num_lanes = cls_dim
-        self.row_smoother = torch.nn.Conv1d(
-    in_channels=num_gridding * num_lanes,  # flatten lanes + grids per row
-    out_channels=num_gridding * num_lanes,
-    kernel_size=3,      # small kernel
-    padding=2,          # (kernel_size - 1) // 2 * dilation
-    dilation=2,         # look at every 2nd row
-    groups=num_gridding * num_lanes,  # depthwise
-    bias=False
-)
-        # -------------------------------
+        decoder_layer = nn.TransformerDecoderLayer(
+            d_model=hidden_dim, nhead=num_heads, batch_first=False
+        )
+        self.decoder = nn.TransformerDecoder(decoder_layer,
+                                             num_layers=num_decoder_layers)
 
+        # -------------------------------------------------------
+        # 🔥 Learnable queries: one per lane (or rail)
+        # -------------------------------------------------------
+        self.query_embed = nn.Embedding(self.num_lanes, hidden_dim)
+
+        # -------------------------------------------------------
+        # 🔥 FFN that maps each query to a 200×52 map
+        # -------------------------------------------------------
+        self.output_ffn = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, self.num_rows * self.num_cols)
+        )
 
     def forward(self, x):
-        # Backbone + pooling
-        x4 = self.model(x)
-        fea = self.pool(x4).view(-1, 1800)
+        # Backbone output
+        feat = self.model(x)              # (B, C, H', W')
 
-        # Raw prediction
-        group_cat = self.cls_cat(fea).view(-1, *self.cls_dim)
-        # shape: [B, G, R, L]
+        feat = self.pool(feat)            # (B, hidden, 9, 25) for your size
 
-        # -------------------------------
-        # ⭐ Apply smoothing across rows
-        # -------------------------------
-        B, G, R, L = group_cat.shape
+        B, C, Hf, Wf = feat.shape
 
-        # Rearrange to apply Conv1d along rows (R)
-        out = group_cat.permute(0, 2, 1, 3)       # [B, R, G, L]
-        out = out.reshape(B, R, G * L).transpose(1, 2)  # [B, G*L, R]
+        # -----------------------------------------
+        # Prepare encoder tokens
+        # -----------------------------------------
+        src = feat.flatten(2).permute(2, 0, 1)  # (tokens=Hf*Wf, B, hidden)
 
-        out = self.row_smoother(out)             # [B, G*L, R]
+        memory = self.encoder(src)
 
-        # Restore original layout
-        out = out.transpose(1, 2).reshape(B, R, G, L)
-        out = out.permute(0, 2, 1, 3)            # [B, G, R, L]
-        # -------------------------------
+        # -----------------------------------------
+        # Prepare queries
+        # -----------------------------------------
+        queries = self.query_embed.weight.unsqueeze(1).repeat(1, B, 1)
+        # (num_lanes, B, hidden)
 
-        return out
+        # -----------------------------------------
+        # Transformer decoder
+        # -----------------------------------------
+        dec_out = self.decoder(queries, memory)  # (num_lanes, B, hidden)
+
+        # -----------------------------------------
+        # FFN → row-classification map
+        # -----------------------------------------
+        out = self.output_ffn(dec_out)           # (num_lanes, B, 200*52)
+        out = out.permute(1, 0, 2)               # (B, lanes, flat)
+
+        out = out.view(B, self.num_lanes,
+                       self.num_rows, self.num_cols)
+
+        # return (B, rows, cols, lanes)
+        return out.permute(0, 2, 3, 1)
 def initialize_weights(*models):
     for model in models:
         real_init_weights(model)
@@ -128,4 +138,5 @@ def real_init_weights(m):
                 real_init_weights(mini_m)
         else:
             print('unkonwn module', m)
+
 
