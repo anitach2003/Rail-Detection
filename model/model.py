@@ -19,7 +19,7 @@ class conv_bn_relu(torch.nn.Module):
 class parsingNet(nn.Module):
     def __init__(self, size=(288, 800), pretrained=True, backbone='18',
                  cls_dim=(200, 52, 4), hidden_dim=256, num_heads=8,
-                 num_encoder_layers=4, num_decoder_layers=4):
+                 num_encoder_layers=6, num_decoder_layers=4):
         super(parsingNet, self).__init__()
 
         self.size = size
@@ -76,7 +76,8 @@ class parsingNet(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_dim, self.num_rows * self.num_cols)
         )
-
+        initialize_weights(self.output_ffn)
+        self.pos_embed = nn.Parameter(torch.randn(1, hidden_dim, self.h // 32, self.w // 32))
     def forward(self, x):
         # Backbone output
         feat = self.model(x)              # (B, C, H', W')
@@ -84,12 +85,16 @@ class parsingNet(nn.Module):
         feat = self.pool(feat)            # (B, hidden, 9, 25) for your size
 
         B, C, Hf, Wf = feat.shape
+        src = feat.flatten(2).permute(2, 0, 1)          # (tokens=Hf*Wf, B, hidden)
 
         # -----------------------------------------
         # Prepare encoder tokens
         # -----------------------------------------
         src = feat.flatten(2).permute(2, 0, 1)  # (tokens=Hf*Wf, B, hidden)
+        pos = self.pos_embed.flatten(2).permute(2, 0, 1) # same shape as src
 
+# Add positional encoding
+        src = src + pos
         memory = self.encoder(src)
 
         # -----------------------------------------
@@ -138,5 +143,6 @@ def real_init_weights(m):
                 real_init_weights(mini_m)
         else:
             print('unkonwn module', m)
+
 
 
