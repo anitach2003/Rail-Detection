@@ -16,7 +16,7 @@ class conv_bn_relu(torch.nn.Module):
         x = self.relu(x)
         return x
 
-class parsingNet(nn.Module):
+class parsingNet(torch.nn.Module):
     def __init__(self, size=(288, 800), pretrained=True, backbone='18',
                  cls_dim=(200, 52, 4), hidden_dim=256, num_heads=8,
                  num_encoder_layers=6, num_decoder_layers=4):
@@ -51,33 +51,33 @@ class parsingNet(nn.Module):
         # -------------------------------------------------------
         # 🔥 DETR-style Transformer Encoder / Decoder
         # -------------------------------------------------------
-        encoder_layer = nn.TransformerEncoderLayer(
+        encoder_layer = torch.nn.TransformerEncoderLayer(
             d_model=hidden_dim, nhead=num_heads, batch_first=False
         )
-        self.encoder = nn.TransformerEncoder(encoder_layer,
+        self.encoder = torch.nn.TransformerEncoder(encoder_layer,
                                              num_layers=num_encoder_layers)
 
-        decoder_layer = nn.TransformerDecoderLayer(
+        decoder_layer = torch.nn.TransformerDecoderLayer(
             d_model=hidden_dim, nhead=num_heads, batch_first=False
         )
-        self.decoder = nn.TransformerDecoder(decoder_layer,
+        self.decoder = torch.nn.TransformerDecoder(decoder_layer,
                                              num_layers=num_decoder_layers)
 
         # -------------------------------------------------------
         # 🔥 Learnable queries: one per lane (or rail)
         # -------------------------------------------------------
-        self.query_embed = nn.Embedding(self.num_lanes, hidden_dim)
+        self.query_embed = torch.nn.Embedding(self.num_lanes, hidden_dim)
 
         # -------------------------------------------------------
         # 🔥 FFN that maps each query to a 200×52 map
         # -------------------------------------------------------
         self.output_ffn = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.ReLU(),
-            nn.Linear(hidden_dim, self.num_rows * self.num_cols)
+            torch.nn.Linear(hidden_dim, hidden_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(hidden_dim, self.num_rows * self.num_cols)
         )
         initialize_weights(self.output_ffn)
-        self.pos_embed = nn.Parameter(torch.randn(1, hidden_dim, self.h // 32, self.w // 32))
+        self.pos_embed = torch.nn.Parameter(torch.randn(1, hidden_dim, self.h // 32, self.w // 32))
     def forward(self, x):
         # Backbone output
         feat = self.model(x)              # (B, C, H', W')
@@ -143,6 +143,7 @@ def real_init_weights(m):
                 real_init_weights(mini_m)
         else:
             print('unkonwn module', m)
+
 
 
 
