@@ -2,6 +2,7 @@ import torch
 from model.backbone import resnet, mobilenet, squeezenet, VisionTransformer
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 class conv_bn_relu(nn.Module):
     def __init__(self, in_channels, out_channels, upsample=0):
         super(conv_bn_relu,self).__init__()
@@ -80,7 +81,7 @@ class parsingNet(torch.nn.Module):
         self.w = size[1]
         self.h = size[0]
         self.cls_dim = cls_dim 
-
+        self.use_aux=use_aux
         # input : nchw,
         # 1/32,
         # 288,800 -> 9,25
@@ -185,6 +186,12 @@ def real_init_weights(m):
                 real_init_weights(mini_m)
         else:
             print('unkonwn module', m)
+
+
+#a=parsingNet(size=(288, 800), pretrained=True, backbone='18', cls_dim=(100, 52, 4), use_aux=True)
+#b=torch.rand(1,3,288,800)
+#c=a(b)
+
 
 
 
