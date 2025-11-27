@@ -152,9 +152,9 @@ class parsingNet(torch.nn.Module):
         else:
             seg=None
 
-        x4 = self.model(c5)
+        
 
-        fea = self.pool(x4).view(-1, 1800)
+        fea = self.pool(c5).view(-1, 1800)
 
         group_cat = self.cls_cat(fea).view(-1, *self.cls_dim)
         if self.use_aux:
@@ -185,5 +185,6 @@ def real_init_weights(m):
                 real_init_weights(mini_m)
         else:
             print('unkonwn module', m)
+
 
 
