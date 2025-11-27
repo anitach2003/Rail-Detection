@@ -70,7 +70,7 @@ def train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, met
     for b_idx, data_label in enumerate(progress_bar):
         t_data_1 = time.time()
         reset_metrics(metric_dict)
-        global_step = epoch * len(data_loader) + b_idx
+        global_step = epoch * len(train_loader) + b_idx
 
         t_net_0 = time.time()
         results = inference(net, data_label, use_aux)
