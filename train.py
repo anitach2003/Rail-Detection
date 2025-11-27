@@ -133,7 +133,7 @@ def validate(net, val_loader, logger, metric_dict, savefig=[]):
                 pred_path = os.path.join(savefig[0], 'row_based/pred', item).replace('pic', savefig[1])
                 if not os.path.exists(os.path.dirname(pred_path)): os.makedirs(os.path.dirname(pred_path))
                 cv2.imwrite(pred_path, vis)
-
+        results = inference(net, data_label,use_aux=True)
         results = resolve_val_data(results,use_aux=True)
         update_metrics(metric_dict, results)
         t_data_0 = time.time()
