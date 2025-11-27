@@ -84,7 +84,7 @@ def train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, met
 
         results = resolve_val_data(results, resolve_val_data)
 
-        update_metrics(metric_dict, results)
+        update_metrics(metric_dict, use_aux)
         if global_step % 20 == 0:
             for me_name, me_op in zip(metric_dict['name'], metric_dict['op']):
                 logger.add_scalar('metric/' + me_name, me_op.get(), global_step=global_step)
