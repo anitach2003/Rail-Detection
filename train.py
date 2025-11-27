@@ -257,7 +257,7 @@ if __name__ == "__main__":
     
     best_acc = 0; best_epoch = 0; best_model = None
     for epoch in range(resume_epoch, cfg.epoch):
-        train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, metric_dict)
+        train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, metric_dict,use_aux=True)
         acc = validate(net, val_loader, logger, metric_dict)
         if acc > best_acc: best_acc, best_epoch, best_model = acc, epoch, copy.deepcopy(net)
         # save_model(net, optimizer, epoch, work_dir, distributed)
