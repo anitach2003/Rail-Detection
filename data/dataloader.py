@@ -6,7 +6,7 @@ import data.mytransforms as mytransforms
 from data.dataset import raildb_row_anchor
 from data.dataset import RailClsDataset, RailTestDataset
 
-def get_train_loader(batch_size, data_root, griding_num=56, distributed=True, num_rails=4, mode='train', type='all',use_aux,):
+def get_train_loader(batch_size, data_root, griding_num=56, distributed=True, num_rails=4, mode='train', type='all',use_aux=False,):
     target_transform = transforms.Compose([
         mytransforms.FreeScaleMask((288, 800)),
         mytransforms.MaskToTensor(),
@@ -78,4 +78,5 @@ class SeqDistributedSampler(torch.utils.data.distributed.DistributedSampler):
         assert len(indices) == self.num_samples
 
         return iter(indices)
+
 
