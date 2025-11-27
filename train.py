@@ -134,7 +134,7 @@ def validate(net, val_loader, logger, metric_dict, savefig=[]):
                 if not os.path.exists(os.path.dirname(pred_path)): os.makedirs(os.path.dirname(pred_path))
                 cv2.imwrite(pred_path, vis)
 
-        results = resolve_val_data(results,use_aux=False)
+        results = resolve_val_data(results,use_aux=True)
         update_metrics(metric_dict, results)
         t_data_0 = time.time()
 
