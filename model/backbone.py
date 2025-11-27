@@ -64,7 +64,7 @@ class resnet(torch.nn.Module):
         x2 = self.layer2(x)
         x3 = self.layer3(x2)
         x4 = self.layer4(x3)
-        return x4
+        return x,x2,x3,x4
         
 class VisionTransformer(torch.nn.Module):
     def __init__(self, layers, pretrained = False):
@@ -253,3 +253,4 @@ if __name__ == "__main__":
     x = torch.zeros((1,3,288,800)).cuda() + 1
     out = model(x)
     print(out.size())
+
