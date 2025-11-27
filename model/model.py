@@ -1,7 +1,7 @@
 import torch
 from model.backbone import resnet, mobilenet, squeezenet, VisionTransformer
 import numpy as np
-
+import torch.nn as nn
 class conv_bn_relu(nn.Module):
     def __init__(self, in_channels, out_channels, upsample=0):
         super(conv_bn_relu,self).__init__()
@@ -185,4 +185,5 @@ def real_init_weights(m):
                 real_init_weights(mini_m)
         else:
             print('unkonwn module', m)
+
 
