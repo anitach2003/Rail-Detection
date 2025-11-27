@@ -82,9 +82,9 @@ def train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, met
         scheduler.step(global_step)
         t_net_1 = time.time()
 
-        results = resolve_val_data(results, resolve_val_data)
+        results = resolve_val_data(results, use_aux)
 
-        update_metrics(metric_dict, use_aux)
+        update_metrics(metric_dict, results)
         if global_step % 20 == 0:
             for me_name, me_op in zip(metric_dict['name'], metric_dict['op']):
                 logger.add_scalar('metric/' + me_name, me_op.get(), global_step=global_step)
