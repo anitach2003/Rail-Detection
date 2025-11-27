@@ -221,10 +221,10 @@ if __name__ == "__main__":
     dist_print(cfg)
     assert cfg.backbone in ['18','34','50','mobilenet_v2', 'squeezenet1_0', 'vit_b_16',]
 
-    train_loader, cls_num_per_lane = get_train_loader(cfg.batch_size, cfg.data_root, cfg.griding_num, distributed, cfg.num_lanes, mode='train', type=cfg.type,cfg.use_aux)
+    train_loader, cls_num_per_lane = get_train_loader(cfg.batch_size, cfg.data_root, cfg.griding_num, distributed, cfg.num_lanes, mode='train', type=cfg.type,use_aux=True)
     val_loader, _ = get_train_loader(cfg.batch_size, cfg.data_root, cfg.griding_num, distributed, cfg.num_lanes, mode='val', type='all')
 
-    net = parsingNet(pretrained = True, backbone=cfg.backbone, cls_dim = (cfg.griding_num+1, cls_num_per_lane, cfg.num_lanes),use_aux=cfg.use_aux).cuda()
+    net = parsingNet(pretrained = True, backbone=cfg.backbone, cls_dim = (cfg.griding_num+1, cls_num_per_lane, cfg.num_lanes),use_aux=True).cuda()
 
     if distributed:
         net = torch.nn.parallel.DistributedDataParallel(net, device_ids = [args.local_rank])
