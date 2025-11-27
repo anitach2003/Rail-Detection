@@ -26,48 +26,40 @@ def get_scheduler(optimizer, cfg, iters_per_epoch):
     else:
         raise NotImplementedError
     return scheduler
-
 def get_loss_dict(cfg):
 
-    loss_dict = {
+    if cfg.use_aux:
+        loss_dict = {
+            'name': ['cls_loss', 'seg_loss'],
+            'op': [SoftmaxFocalLoss(2),torch.nn.CrossEntropyLoss()],
+            'weight': [1.0, 1.0],
+            'data_src': [('cls_out', 'cls_label'), ('seg_out', 'seg_label')]
+        }
+    else:
+        loss_dict = {
         'name': ['cls_loss', ],
         'op': [SoftmaxFocalLoss(2), ],
         'weight': [1.0, ],
         'data_src': [('cls_out', 'cls_label'), ]
-    }
+        }
 
     return loss_dict
-
-def get_loss_dict_seg(cfg):
-
-    loss_dict = {
-        'name': ['seg_loss', ],
-        'op': [torch.nn.CrossEntropyLoss(), ],
-        'weight': [1.0, ],
-        'data_src': [('seg_out', 'seg_label'), ]
-    }
-
-    return loss_dict
-
 def get_metric_dict(cfg):
 
-    metric_dict = {
-        'name': ['top1', 'top2', 'top3'],
-        'op': [MultiLabelAcc(), AccTopk(cfg.griding_num, 2), AccTopk(cfg.griding_num, 3)],
-        'data_src': [('cls_out', 'cls_label'), ('cls_out', 'cls_label'), ('cls_out', 'cls_label')]
-    }
+    if cfg.use_aux:
+        metric_dict = {
+            'name': ['top1', 'top2', 'top3', 'iou'],
+            'op': [MultiLabelAcc(), AccTopk(cfg.griding_num, 2), AccTopk(cfg.griding_num, 3), Metric_mIoU(cfg.num_lanes+1)],
+            'data_src': [('cls_out', 'cls_label'), ('cls_out', 'cls_label'), ('cls_out', 'cls_label'), ('seg_out', 'seg_label')]
+        }
+    else:
+        metric_dict = {
+            'name': ['top1', 'top2', 'top3'],
+            'op': [MultiLabelAcc(), AccTopk(cfg.griding_num, 2), AccTopk(cfg.griding_num, 3)],
+            'data_src': [('cls_out', 'cls_label'), ('cls_out', 'cls_label'), ('cls_out', 'cls_label')]
+        }
+
     
-    return metric_dict
-
-
-def get_metric_dict_seg(cfg):
-
-    metric_dict = {
-        'name': ['iou'],
-        'op': [Metric_mIoU(cfg.num_lanes+1)],
-        'data_src': [('seg_out', 'seg_label')]
-    }
-
     return metric_dict
 
 class MultiStepLR:
@@ -135,3 +127,4 @@ class CosineAnnealingLR:
 
 
         
+
