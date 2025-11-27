@@ -110,7 +110,7 @@ def validate(net, val_loader, logger, metric_dict, savefig=[]):
         t_data_1 = time.time()
         global_step = b_idx
 
-        results = inference(net, data_label)
+        results = inference(net, data_label,use_aux=False)
         preds_inter = [grid_2_inter(out, cfg.griding_num) for out in results['cls_out']]
         # print(pred)
         gt = data_label[2].cpu().numpy()
