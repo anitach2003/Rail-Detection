@@ -32,7 +32,7 @@ def inference(net, data_label, use_aux):
     else:
         img, cls_label, _, _, _ = data_label
         img, cls_label = img.cuda(), cls_label.long().cuda()
-        cls_out, _ = net(img)
+        cls_out = net(img)
         return {'cls_out': cls_out, 'cls_label': cls_label}
 
 
