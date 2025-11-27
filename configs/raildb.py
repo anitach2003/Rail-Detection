@@ -4,7 +4,7 @@ data_root = '/kaggle/working/Rail-Detection/Rail-DB/'
 
 # TRAIN
 epoch = 50
-batch_size = 64
+batch_size = 32
 optimizer = 'Adam'    #['SGD','Adam']
 # learning_rate = 0.1
 learning_rate = 4e-4
