@@ -21,7 +21,7 @@ warmup_iters = 100
 backbone = '18'
 griding_num = 200
 cls_num_per_lane = 52
-
+use_aux=False
 # EXP
 note = 'test'
 
