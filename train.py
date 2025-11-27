@@ -226,8 +226,8 @@ if __name__ == "__main__":
 
     net = parsingNet(pretrained = True, backbone=cfg.backbone, cls_dim = (cfg.griding_num+1, cls_num_per_lane, cfg.num_lanes),use_aux=True).cuda()
 
-    if distributed:
-        net = torch.nn.parallel.DistributedDataParallel(net, device_ids = [args.local_rank])
+    
+    net = torch.nn.parallel.DistributedDataParallel(net, device_ids=[0, 1])
     optimizer = get_optimizer(net, cfg)
 
     if cfg.finetune is not None:
