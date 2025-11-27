@@ -38,7 +38,7 @@ def get_train_loader(batch_size, data_root, griding_num=56, distributed=True, nu
                         num_rails = num_rails,
                         mode = mode,
                         type = type,
-                        use_aux,
+                        use_aux=False,
                         )
 
     if distributed:
@@ -78,5 +78,6 @@ class SeqDistributedSampler(torch.utils.data.distributed.DistributedSampler):
         assert len(indices) == self.num_samples
 
         return iter(indices)
+
 
 
