@@ -82,7 +82,7 @@ def train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, met
         scheduler.step(global_step)
         t_net_1 = time.time()
 
-        results = resolve_val_data(results, use_aux)
+        results = resolve_val_data(results, resolve_val_data)
 
         update_metrics(metric_dict, results)
         if global_step % 20 == 0:
@@ -134,7 +134,7 @@ def validate(net, val_loader, logger, metric_dict, savefig=[]):
                 if not os.path.exists(os.path.dirname(pred_path)): os.makedirs(os.path.dirname(pred_path))
                 cv2.imwrite(pred_path, vis)
 
-        results = resolve_val_data(results)
+        results = resolve_val_data(results,use_aux=False)
         update_metrics(metric_dict, results)
         t_data_0 = time.time()
 
