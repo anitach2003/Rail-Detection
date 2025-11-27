@@ -23,17 +23,25 @@ color_list = [(0,0,225), (255,0,0), (0,225,0), (255,0,225), (255,255,225), (0,25
 thickness_list = [1, 3, 5, 7, 9, 11, 13, 15]
 thickness_list.reverse()
 
-def inference(net, data_label):
+def inference(net, data_label, use_aux):
+    if use_aux:
+        img, cls_label, _, seg_label, _ = data_label
+        img, cls_label, seg_label = img.cuda(), cls_label.long().cuda(), seg_label.long().cuda()
+        cls_out, seg_out = net(img)
+        return {'cls_out': cls_out, 'cls_label': cls_label, 'seg_out':seg_out, 'seg_label': seg_label}
+    else:
+        img, cls_label, _, _, _ = data_label
+        img, cls_label = img.cuda(), cls_label.long().cuda()
+        cls_out = net(img)
+        return {'cls_out': cls_out, 'cls_label': cls_label}
 
-    img, cls_label, _, _, _ = data_label
-    img, cls_label = img.cuda(), cls_label.long().cuda()
-    cls_out = net(img)
-    return {'cls_out': cls_out, 'cls_label': cls_label}
 
-def resolve_val_data(results):
+def resolve_val_data(results, use_aux):
     # input: (batch_size, num_gridding, num_cls_per_lane, num_of_lanes)
     # output: (batch_size, num_cls_per_lane, num_of_lanes)
     results['cls_out'] = torch.argmax(results['cls_out'], dim=1)
+    if use_aux:
+        results['seg_out'] = torch.argmax(results['seg_out'], dim=1)
     return results
 
 def calc_loss(loss_dict, results, logger, global_step):
@@ -54,18 +62,18 @@ def calc_loss(loss_dict, results, logger, global_step):
         loss += loss_cur * loss_dict['weight'][i]
     return loss
 
-def train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, metric_dict):
+def train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, metric_dict, use_aux):
     dist_print('*****************   Training   ***********************')
-    net.train(mode=True)
+    net.train()
     progress_bar = dist_tqdm(train_loader)
     t_data_0 = time.time()
     for b_idx, data_label in enumerate(progress_bar):
         t_data_1 = time.time()
         reset_metrics(metric_dict)
-        global_step = epoch * len(train_loader) + b_idx
+        global_step = epoch * len(data_loader) + b_idx
 
         t_net_0 = time.time()
-        results = inference(net, data_label)
+        results = inference(net, data_label, use_aux)
 
         loss = calc_loss(loss_dict, results, logger, global_step)
         optimizer.zero_grad()
@@ -74,7 +82,7 @@ def train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, met
         scheduler.step(global_step)
         t_net_1 = time.time()
 
-        results = resolve_val_data(results)
+        results = resolve_val_data(results, use_aux)
 
         update_metrics(metric_dict, results)
         if global_step % 20 == 0:
@@ -82,7 +90,7 @@ def train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, met
                 logger.add_scalar('metric/' + me_name, me_op.get(), global_step=global_step)
         logger.add_scalar('meta/lr', optimizer.param_groups[0]['lr'], global_step=global_step)
 
-        if hasattr(progress_bar, 'set_postfix'):
+        if hasattr(progress_bar,'set_postfix'):
             kwargs = {me_name: '%.3f' % me_op.get() for me_name, me_op in zip(metric_dict['name'], metric_dict['op'])}
             progress_bar.set_postfix(loss = '%.3f' % float(loss), 
                                     data_time = '%.3f' % float(t_data_1 - t_data_0), 
