@@ -133,8 +133,8 @@ def validate(net, val_loader, logger, metric_dict, savefig=[]):
                 pred_path = os.path.join(savefig[0], 'row_based/pred', item).replace('pic', savefig[1])
                 if not os.path.exists(os.path.dirname(pred_path)): os.makedirs(os.path.dirname(pred_path))
                 cv2.imwrite(pred_path, vis)
-        results = inference(net, data_label,use_aux=False)
-        results = resolve_val_data(results,use_aux=False)
+        results = inference(net, data_label,use_aux=True)
+        results = resolve_val_data(results,use_aux=True)
         update_metrics(metric_dict, results)
         t_data_0 = time.time()
 
@@ -224,7 +224,7 @@ if __name__ == "__main__":
     train_loader, cls_num_per_lane = get_train_loader(cfg.batch_size, cfg.data_root, cfg.griding_num, distributed, cfg.num_lanes, mode='train', type=cfg.type,use_aux=False)
     val_loader, _ = get_train_loader(cfg.batch_size, cfg.data_root, cfg.griding_num, distributed, cfg.num_lanes, mode='val', type='all')
 
-    net = parsingNet(pretrained = True, backbone=cfg.backbone, cls_dim = (cfg.griding_num+1, cls_num_per_lane, cfg.num_lanes),use_aux=False).cuda()
+    net = parsingNet(pretrained = True, backbone=cfg.backbone, cls_dim = (cfg.griding_num+1, cls_num_per_lane, cfg.num_lanes),use_aux=True).cuda()
 
     
     #net = torch.nn.parallel.DataParallel(net, device_ids=[0, 1])
@@ -257,7 +257,7 @@ if __name__ == "__main__":
     
     best_acc = 0; best_epoch = 0; best_model = None
     for epoch in range(resume_epoch, cfg.epoch):
-        train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, metric_dict,use_aux=False)
+        train(net, train_loader, loss_dict, optimizer, scheduler, logger, epoch, metric_dict,use_aux=True)
         acc = validate(net, val_loader, logger, metric_dict)
         if acc > best_acc: best_acc, best_epoch, best_model = acc, epoch, copy.deepcopy(net)
         # save_model(net, optimizer, epoch, work_dir, distributed)
