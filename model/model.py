@@ -192,8 +192,8 @@ class parsingNet(torch.nn.Module):
         else:
             seg=None
 
-        x4 = self.model(c5)
-        fea = self.pool(x4)
+        
+        fea = self.pool(c5)
         fea = F.adaptive_avg_pool2d(fea, (9, 25))
         fea = fea.view(fea.size(0), 8, -1).permute(0, 2, 1)  # [B, 225, 8]
 
@@ -246,6 +246,7 @@ def real_init_weights(m):
 #a=parsingNet(size=(288, 800), pretrained=True, backbone='18', cls_dim=(100, 52, 4), use_aux=True)
 #b=torch.rand(1,3,288,800)
 #c=a(b)
+
 
 
 
