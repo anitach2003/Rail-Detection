@@ -8,14 +8,14 @@ batch_size = 32
 optimizer = 'Adam'    #['SGD','Adam']
 # learning_rate = 0.1
 learning_rate = 1e-4
-weight_decay = 1e-4
+weight_decay = 1e-5
 momentum = 0.9
 
 scheduler = 'cos'     #['multi', 'cos']
 # steps = [50,75]
 gamma  = 0.1
 warmup = 'linear'
-warmup_iters = 100
+warmup_iters = 200
 
 # NETWORK
 backbone = '18'
