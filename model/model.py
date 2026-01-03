@@ -5,7 +5,44 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 from model.backbone import resnet, mobilenet, squeezenet, VisionTransformer
+class FeatureSelectionModule(nn.Module):
+    def __init__(self, in_chan, out_chan, norm="GN"):
+        super(FeatureSelectionModule, self).__init__()
+        self.conv_atten = Conv2d(in_chan, in_chan, kernel_size=1, bias=False, norm=get_norm(norm, in_chan))
+        self.sigmoid = nn.Sigmoid()
+        self.conv = Conv2d(in_chan, out_chan, kernel_size=1, bias=False, norm=get_norm('', out_chan))
+        weight_init.c2_xavier_fill(self.conv_atten)
+        weight_init.c2_xavier_fill(self.conv)
 
+    def forward(self, x):
+        atten = self.sigmoid(self.conv_atten(F.avg_pool2d(x, x.size()[2:])))
+        feat = torch.mul(x, atten)
+        x = x + feat
+        feat = self.conv(x)
+        return feat
+
+
+class FeatureAlign_V2(nn.Module):  # FaPN full version
+    def __init__(self, in_nc=128, out_nc=128, norm=None):
+        super(FeatureAlign_V2, self).__init__()
+        self.lateral_conv = FeatureSelectionModule(in_nc, out_nc, norm="")
+        self.offset = Conv2d(out_nc * 2, out_nc, kernel_size=1, stride=1, padding=0, bias=False, norm=norm)
+        self.dcpack_L2 = dcn_v2(out_nc, out_nc, 3, stride=1, padding=1, dilation=1, deformable_groups=8,
+                                extra_offset_mask=True)
+        self.relu = nn.ReLU(inplace=True)
+        weight_init.c2_xavier_fill(self.offset)
+
+    def forward(self, feat_l, feat_s, main_path=None):
+        HW = feat_l.size()[2:]
+        if feat_l.size()[2:] != feat_s.size()[2:]:
+            feat_up = F.interpolate(feat_s, HW, mode='bilinear', align_corners=False)
+        else:
+            feat_up = feat_s
+        feat_arm = self.lateral_conv(feat_l)  # 0~1 * feats
+        offset = self.offset(torch.cat([feat_arm, feat_up * 2], dim=1))  # concat for offset by compute the dif
+        feat_align = self.relu(self.dcpack_L2([feat_up, offset], main_path))  # [feat, offset]
+        return feat_align + feat_arm
+        
 class resnet(torch.nn.Module):
     def __init__(self, layers, pretrained = False):
         super(resnet,self).__init__()
@@ -246,6 +283,7 @@ def real_init_weights(m):
 #a=parsingNet(size=(288, 800), pretrained=True, backbone='18', cls_dim=(100, 52, 4), use_aux=True)
 #b=torch.rand(1,3,288,800)
 #c=a(b)
+
 
 
 
